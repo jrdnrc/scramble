@@ -44,18 +44,34 @@ class UniqueNamesOptionsCollection
 
     public function getUniqueName(UniqueNameOptions $name, ?callable $onNotUniqueFallback = null): string
     {
-        if ($name->eloquent && count($this->eloquentNames[$name->eloquent]) === 1) {
+        if ($this->resolvesToEloquentName($name)) {
             return $name->eloquent;
         }
 
-        if (count($this->fallbackEloquentNames[$name->getFallbackEloquent()]) === 1) {
+        if ($this->countCompetingNames($this->fallbackEloquentNames[$name->getFallbackEloquent()]) === 1) {
             return $name->getFallbackEloquent();
         }
 
-        if (count($this->fallbackNames[$name->getFallback()]) === 1) {
+        if ($this->countCompetingNames($this->fallbackNames[$name->getFallback()]) === 1) {
             return $name->getFallback();
         }
 
         return $onNotUniqueFallback ? $onNotUniqueFallback($name->getFallback()) : throw new \LogicException('Cannot retrieve a unique name');
+    }
+
+    private function resolvesToEloquentName(UniqueNameOptions $name): bool
+    {
+        return $name->eloquent && count($this->eloquentNames[$name->eloquent]) === 1;
+    }
+
+    /**
+     * Names that resolve to their own unique eloquent name never use a fallback, so they
+     * must not stop other names from using the same fallback.
+     *
+     * @param  UniqueNameOptions[]  $names
+     */
+    private function countCompetingNames(array $names): int
+    {
+        return count(array_filter($names, fn (UniqueNameOptions $name) => ! $this->resolvesToEloquentName($name)));
     }
 }
